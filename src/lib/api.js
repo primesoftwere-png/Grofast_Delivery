@@ -1,0 +1,338 @@
+// API Configuration and Helper Functions
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://172.20.10.5:8000';
+
+/**
+ * Generic API request handler
+ */
+async function apiRequest(endpoint, options = {}) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  const config = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    ...options,
+  };
+
+  // Add auth token if available
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
+  try {
+    const response = await fetch(url, config);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        status: response.status,
+        message: data.message || 'An error occurred',
+        errors: data.errors || [],
+      };
+    }
+
+    return data;
+  } catch (error) {
+    if (error.status) {
+      throw error;
+    }
+    throw {
+      status: 500,
+      message: 'Network error. Please check your connection.',
+      errors: [],
+    };
+  }
+}
+
+/**
+ * Delivery Boy Authentication APIs
+ */
+export const deliveryAuthAPI = {
+  /**
+   * Register a new delivery boy
+   * @param {Object} data - Registration data
+   * @returns {Promise<Object>} Registration response with user, deliveryBoy, wallet, and token
+   */
+  register: async (data) => {
+    const response = await apiRequest('/api/delivery/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    // Store token in localStorage
+    if (response.data?.token) {
+      localStorage.setItem('authToken', response.data.token);
+      localStorage.setItem('userRole', 'deliveryBoy');
+      localStorage.setItem('userId', response.data.user._id);
+    }
+
+    return response;
+  },
+
+  /**
+   * Login delivery boy
+   * @param {string} email - User email
+   * @param {string} password - User password
+   * @returns {Promise<Object>} Login response with user, deliveryBoy, kycStatus, and token
+   */
+  login: async (email, password) => {
+    const response = await apiRequest('/api/delivery/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+
+    // Store token and user data in localStorage
+    if (response.data?.token) {
+      localStorage.setItem('authToken', response.data.token);
+      localStorage.setItem('userRole', 'deliveryBoy');
+      localStorage.setItem('userId', response.data.user._id);
+      localStorage.setItem('accountStatus', response.data.user.accountStatus);
+      localStorage.setItem('kycStatus', response.data.kycStatus);
+    }
+
+    return response;
+  },
+
+  /**
+   * Verify email with OTP
+   * @param {string} email - User email
+   * @param {string} otp - OTP code
+   * @returns {Promise<Object>} Verification response
+   */
+  verifyEmail: async (email, otp) => {
+    return await apiRequest('/api/delivery/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+  },
+
+  /**
+   * Logout delivery boy
+   * @returns {Promise<Object>} Logout response
+   */
+  logout: async () => {
+    try {
+      const response = await apiRequest('/api/delivery/auth/logout', {
+        method: 'POST',
+      });
+
+      // Clear localStorage
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('accountStatus');
+      localStorage.removeItem('kycStatus');
+
+      return response;
+    } catch (error) {
+      // Clear localStorage even if API call fails
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('accountStatus');
+      localStorage.removeItem('kycStatus');
+      
+      throw error;
+    }
+  },
+};
+
+/**
+ * Check if user is authenticated
+ */
+export const isAuthenticated = () => {
+  if (typeof window === 'undefined') return false;
+  return !!localStorage.getItem('authToken');
+};
+
+/**
+ * Get current user role
+ */
+export const getUserRole = () => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('userRole');
+};
+
+/**
+ * Get auth token
+ */
+export const getAuthToken = () => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('authToken');
+};
+
+/**
+ * Get user account status
+ */
+export const getAccountStatus = () => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('accountStatus');
+};
+
+/**
+ * Get KYC status
+ */
+export const getKYCStatus = () => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('kycStatus');
+};
+
+/**
+ * Delivery Boy Order Management APIs
+ */
+export const deliveryOrderAPI = {
+  /**
+   * Get available orders (nearby orders)
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object>} Available orders
+   */
+  getAvailableOrders: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/api/delivery/orders/available${queryString ? `?${queryString}` : ''}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Get assigned orders
+   * @param {string} status - Optional status filter
+   * @returns {Promise<Object>} Assigned orders
+   */
+  getAssignedOrders: async (status = null) => {
+    const endpoint = `/api/delivery/orders/assigned${status ? `?status=${status}` : ''}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Accept an order
+   * @param {string} orderId - Order ID to accept
+   * @returns {Promise<Object>} Accepted order details
+   */
+  acceptOrder: async (orderId) => {
+    return await apiRequest('/api/delivery/orders/accept', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    });
+  },
+
+  /**
+   * Reject an order
+   * @param {string} orderId - Order ID to reject
+   * @param {string} reason - Rejection reason
+   * @returns {Promise<Object>} Rejection response
+   */
+  rejectOrder: async (orderId, reason = '') => {
+    return await apiRequest('/api/delivery/orders/reject', {
+      method: 'POST',
+      body: JSON.stringify({ orderId, reason }),
+    });
+  },
+
+  /**
+   * Get order details
+   * @param {string} orderId - Order ID
+   * @returns {Promise<Object>} Order details with items
+   */
+  getOrderDetails: async (orderId) => {
+    return await apiRequest(`/api/delivery/orders/${orderId}`, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Mark order as picked up (with OTP)
+   * @param {string} orderId - Order ID
+   * @param {string} pickupOTP - 6-digit OTP from shopkeeper
+   * @returns {Promise<Object>} Updated order
+   */
+  markPickedUp: async (orderId, pickupOTP) => {
+    return await apiRequest('/api/delivery/orders/pickup', {
+      method: 'POST',
+      body: JSON.stringify({ orderId, pickupOTP }),
+    });
+  },
+
+  /**
+   * Start delivery
+   * @param {string} orderId - Order ID
+   * @returns {Promise<Object>} Updated order
+   */
+  startDelivery: async (orderId) => {
+    return await apiRequest('/api/delivery/orders/start-delivery', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    });
+  },
+
+  /**
+   * Complete delivery (with OTP)
+   * @param {string} orderId - Order ID
+   * @param {string} deliveryOTP - 6-digit OTP from customer
+   * @returns {Promise<Object>} Completed order
+   */
+  completeDelivery: async (orderId, deliveryOTP) => {
+    return await apiRequest('/api/delivery/orders/complete', {
+      method: 'POST',
+      body: JSON.stringify({ orderId, deliveryOTP }),
+    });
+  },
+
+  /**
+   * Generate pickup OTP (Testing/Admin)
+   * @param {string} orderId - Order ID
+   * @returns {Promise<Object>} OTP details
+   */
+  generatePickupOTP: async (orderId) => {
+    return await apiRequest('/api/delivery/orders/otp/pickup', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    });
+  },
+
+  /**
+   * Generate delivery OTP (Testing/Admin)
+   * @param {string} orderId - Order ID
+   * @returns {Promise<Object>} OTP details
+   */
+  generateDeliveryOTP: async (orderId) => {
+    return await apiRequest('/api/delivery/orders/otp/delivery', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    });
+  },
+};
+
+/**
+ * Delivery Boy Availability APIs
+ */
+export const deliveryAvailabilityAPI = {
+  /**
+   * Toggle online/offline status
+   * @param {boolean} isOnline - true to go online, false to go offline
+   * @returns {Promise<Object>} Updated status
+   */
+  toggleStatus: async (isOnline) => {
+    return await apiRequest('/api/delivery/availability/toggle', {
+      method: 'POST',
+      body: JSON.stringify({ isOnline }),
+    });
+  },
+
+  /**
+   * Get current availability status
+   * @returns {Promise<Object>} Current status details
+   */
+  getStatus: async () => {
+    return await apiRequest('/api/delivery/availability/status', {
+      method: 'GET',
+    });
+  },
+};
