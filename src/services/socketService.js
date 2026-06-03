@@ -29,7 +29,7 @@ class SocketService {
       return null;
     }
 
-    const serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://172.20.10.5:8000';
+    const serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
     console.log('🔌 Connecting to Socket.IO server:', serverUrl);
 
@@ -101,6 +101,15 @@ class SocketService {
     this.socket.on('order-available', (data) => {
       console.log('📦 New order available:', data);
       this.emit('order_available', data);
+    });
+
+    /**
+     * Order taken by another delivery boy
+     * Emitted to delivery-room after someone accepts the order
+     */
+    this.socket.on('order-taken', (data) => {
+      console.log('❌ Order taken by another delivery boy:', data);
+      this.emit('order_taken', data);
     });
 
     /**

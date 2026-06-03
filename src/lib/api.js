@@ -1,6 +1,6 @@
 // API Configuration and Helper Functions
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://172.20.10.5:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 /**
  * Generic API request handler
@@ -140,6 +140,19 @@ export const deliveryAuthAPI = {
       throw error;
     }
   },
+
+  /**
+   * Change password
+   * @param {string} currentPassword
+   * @param {string} newPassword
+   * @returns {Promise<Object>} Response
+   */
+  changePassword: async (currentPassword, newPassword) => {
+    return await apiRequest('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
 };
 
 /**
@@ -256,7 +269,7 @@ export const deliveryOrderAPI = {
   markPickedUp: async (orderId, pickupOTP) => {
     return await apiRequest('/api/delivery/orders/pickup', {
       method: 'POST',
-      body: JSON.stringify({ orderId, pickupOTP }),
+      body: JSON.stringify({ orderId, pickupOTP }),  // Send orderId (not orderToken)
     });
   },
 
@@ -281,7 +294,7 @@ export const deliveryOrderAPI = {
   completeDelivery: async (orderId, deliveryOTP) => {
     return await apiRequest('/api/delivery/orders/complete', {
       method: 'POST',
-      body: JSON.stringify({ orderId, deliveryOTP }),
+      body: JSON.stringify({ orderId, deliveryOTP }),  // Send orderId (not orderToken)
     });
   },
 
@@ -335,4 +348,31 @@ export const deliveryAvailabilityAPI = {
       method: 'GET',
     });
   },
+};
+
+/**
+ * Delivery Boy Profile APIs
+ */
+export const deliveryProfileAPI = {
+  /**
+   * Get Delivery Boy Profile
+   * @returns {Promise<Object>} Profile data
+   */
+  getProfile: async () => {
+    return await apiRequest('/api/delivery/profile', {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Update Delivery Boy Profile
+   * @param {Object} data - Profile updates
+   * @returns {Promise<Object>} Updated profile data
+   */
+  updateProfile: async (data) => {
+    return await apiRequest('/api/delivery/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
 };

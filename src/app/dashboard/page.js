@@ -1,10 +1,38 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Package, DollarSign, Clock, TrendingUp, MapPin, Check, X, Loader2, RefreshCw } from "lucide-react";
+import { Package, DollarSign, Clock, TrendingUp, MapPin, Check, X, Loader2, RefreshCw, Wifi, WifiOff, Bell } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useSocketContext } from "@/components/SocketProvider";
+
+// Status badge color mapping (uppercase backend statuses)
+function getStatusBadge(status) {
+  const map = {
+    'PENDING': { bg: 'bg-yellow-100 text-yellow-700', label: 'Pending' },
+    'CONFIRMED': { bg: 'bg-blue-100 text-blue-700', label: 'Confirmed' },
+    'ASSIGNED_TO_DELIVERY': { bg: 'bg-purple-100 text-purple-700', label: 'Assigned to You' },
+    'READY_FOR_PICKUP': { bg: 'bg-orange-100 text-orange-700', label: 'Ready for Pickup' },
+    'OUT_FOR_DELIVERY': { bg: 'bg-orange-500 text-white', label: 'Out for Delivery' },
+    'DELIVERED': { bg: 'bg-green-100 text-green-700', label: 'Delivered' },
+    'CANCELLED': { bg: 'bg-red-100 text-red-700', label: 'Cancelled' },
+    // Legacy lowercase statuses
+    'confirmed': { bg: 'bg-blue-100 text-blue-700', label: 'Confirmed' },
+    'ready_for_pickup': { bg: 'bg-orange-100 text-orange-700', label: 'Ready for Pickup' },
+    'out_for_delivery': { bg: 'bg-orange-500 text-white', label: 'Out for Delivery' },
+    'delivered': { bg: 'bg-green-100 text-green-700', label: 'Delivered' },
+    'picked_up': { bg: 'bg-purple-100 text-purple-700', label: 'Picked Up' },
+  };
+  return map[status] || { bg: 'bg-gray-100 text-gray-700', label: status || 'Unknown' };
+}
+
+function isActiveOrder(status) {
+  const activeStatuses = [
+    'OUT_FOR_DELIVERY', 'ASSIGNED_TO_DELIVERY', 'READY_FOR_PICKUP',
+    'out_for_delivery', 'ready_for_pickup', 'picked_up'
+  ];
+  return activeStatuses.includes(status);
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -12,6 +40,8 @@ export default function Dashboard() {
   const [assignedOrders, setAssignedOrders] = useState([]);
   const [activeOrder, setActiveOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null); // orderId being processed
+  const [toast, setToast] = useState(null); // { type, message }
   const [stats, setStats] = useState({
     todayOrders: 0,
     todayEarnings: 0,
@@ -28,56 +58,44 @@ export default function Dashboard() {
     error
   } = useOrders();
 
-  const { socketService, notifications } = useSocketContext();
+  const { socketService, notifications, deliveryRequests, isConnected } = useSocketContext();
 
-  useEffect(() => {
-    loadDashboardData();
-
-    // Listen for real-time updates
-    const handleStatusUpdate = () => {
-      loadDashboardData(); // Reload dashboard when status changes
-    };
-
-    const handleOrderReady = () => {
-      loadDashboardData(); // Reload when order is ready
-    };
-
-    socketService.on('status_updated', handleStatusUpdate);
-    socketService.on('order_ready_for_pickup', handleOrderReady);
-    socketService.on('order_cancelled', handleStatusUpdate);
-
-    // Cleanup
-    return () => {
-      socketService.off('status_updated', handleStatusUpdate);
-      socketService.off('order_ready_for_pickup', handleOrderReady);
-      socketService.off('order_cancelled', handleStatusUpdate);
-    };
+  const showToast = useCallback((type, message, duration = 3000) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), duration);
   }, []);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      // Load available orders
-      const availableResponse = await getAvailableOrders();
-      setAvailableOrders(availableResponse.data.orders || []);
+      // Try to load available orders (requires online + available status)
+      try {
+        const availableResponse = await getAvailableOrders();
+        setAvailableOrders(availableResponse.data?.orders || []);
+      } catch (availErr) {
+        // Delivery boy might be offline/unavailable - that's ok
+        if (!availErr.message?.includes('online') && !availErr.message?.includes('unavailable')) {
+          console.warn('Available orders fetch error:', availErr.message);
+        }
+        setAvailableOrders([]);
+      }
 
       // Load assigned orders
       const assignedResponse = await getAssignedOrders();
-      const assigned = assignedResponse.data.orders || [];
+      const assigned = assignedResponse.data?.orders || [];
       setAssignedOrders(assigned);
 
-      // Find active order (out_for_delivery or picked_up)
-      const active = assigned.find(
-        order => order.orderStatus === 'out_for_delivery' || order.orderStatus === 'picked_up'
-      );
+      // Find active order
+      const active = assigned.find(order => isActiveOrder(order.orderStatus));
       setActiveOrder(active || null);
 
-      // Calculate stats (you can enhance this based on your needs)
+      // Stats
+      const delivered = assigned.filter(o => o.orderStatus === 'DELIVERED' || o.orderStatus === 'delivered');
       setStats({
         todayOrders: assigned.length,
-        todayEarnings: assigned.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
-        avgDelivery: 18, // This should come from backend
-        rating: 4.8 // This should come from backend
+        todayEarnings: delivered.reduce((sum, o) => sum + (o.deliveryCharge || o.deliveryEarnings || 50), 0),
+        avgDelivery: 18,
+        rating: 4.8
       });
 
     } catch (err) {
@@ -85,26 +103,96 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAvailableOrders, getAssignedOrders]);
+
+  // Initial load
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  // Real-time socket listeners
+  useEffect(() => {
+    // When a new order becomes available via socket, add to list
+    const handleOrderAvailable = (data) => {
+      setAvailableOrders(prev => {
+        const orderId = data.orderId?.toString();
+        if (prev.some(o => o._id?.toString() === orderId)) return prev;
+        // Add as a lightweight order entry from socket data
+        return [{
+          _id: orderId,
+          orderNumber: data.orderNumber,
+          totalAmount: data.totalAmount,
+          paymentMethod: data.paymentMethod,
+          shopId: { fullname: data.shopName, phone: data.shopPhone },
+          status: 'CONFIRMED',
+          orderStatus: 'CONFIRMED',
+          distance: data.distance,
+          fromSocket: true
+        }, ...prev];
+      });
+    };
+
+    // When order is taken by another delivery boy
+    const handleOrderTaken = (data) => {
+      const orderId = data.orderId?.toString();
+      setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId));
+    };
+
+    // When delivery boy accepts an order → reload dashboard
+    const handleOrderAssigned = () => {
+      loadDashboardData();
+    };
+
+    // When order status changes
+    const handleStatusUpdate = () => {
+      loadDashboardData();
+    };
+
+    socketService.on('order_available', handleOrderAvailable);
+    socketService.on('order_taken', handleOrderTaken);
+    socketService.on('order_assigned', handleOrderAssigned);
+    socketService.on('status_updated', handleStatusUpdate);
+    socketService.on('order_ready_for_pickup', handleStatusUpdate);
+    socketService.on('order_cancelled', handleStatusUpdate);
+
+    return () => {
+      socketService.off('order_available', handleOrderAvailable);
+      socketService.off('order_taken', handleOrderTaken);
+      socketService.off('order_assigned', handleOrderAssigned);
+      socketService.off('status_updated', handleStatusUpdate);
+      socketService.off('order_ready_for_pickup', handleStatusUpdate);
+      socketService.off('order_cancelled', handleStatusUpdate);
+    };
+  }, [socketService, loadDashboardData]);
 
   const handleAcceptOrder = async (orderId) => {
+    setActionLoading(orderId);
     try {
-      await acceptOrder(orderId);
-      loadDashboardData(); // Reload data
-      alert('Order accepted successfully!');
+      const response = await acceptOrder(orderId);
+      setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId?.toString()));
+      showToast('success', '✅ Order accepted! Head to the shop for pickup.');
+      loadDashboardData();
+      // Navigate to order details
+      const responseOrderId = response?.data?.orderId || orderId;
+      setTimeout(() => router.push(`/orders/${responseOrderId}`), 1000);
     } catch (err) {
-      alert(err.message || 'Failed to accept order');
+      showToast('error', err.message || 'Failed to accept order');
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleRejectOrder = async (orderId) => {
-    const reason = prompt('Reason for rejection (optional):');
+    setActionLoading(orderId);
     try {
-      await rejectOrder(orderId, reason || '');
-      loadDashboardData(); // Reload data
-      alert('Order rejected');
+      await rejectOrder(orderId, 'Not available');
+      setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId?.toString()));
+      showToast('info', 'Order rejected');
     } catch (err) {
-      alert(err.message || 'Failed to reject order');
+      // Remove from UI anyway
+      setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId?.toString()));
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -114,16 +202,19 @@ export default function Dashboard() {
 
   const statsData = [
     { label: "Today's Orders", value: stats.todayOrders.toString(), icon: Package, color: "text-primary" },
-    { label: "Earnings Today", value: `₹${stats.todayEarnings.toFixed(0)}`, icon: DollarSign, color: "text-primary" },
-    { label: "Avg. Delivery", value: `${stats.avgDelivery} min`, icon: Clock, color: "text-info" },
-    { label: "Rating", value: stats.rating.toString(), icon: TrendingUp, color: "text-warning" },
+    { label: "Earnings Today", value: `₹${stats.todayEarnings}`, icon: DollarSign, color: "text-green-500" },
+    { label: "Avg. Delivery", value: `${stats.avgDelivery} min`, icon: Clock, color: "text-blue-500" },
+    { label: "Rating", value: stats.rating.toFixed(1), icon: TrendingUp, color: "text-yellow-500" },
   ];
 
   if (loading) {
     return (
       <div className="p-4">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+          </div>
         </div>
       </div>
     );
@@ -131,42 +222,70 @@ export default function Dashboard() {
 
   return (
     <div className="p-4">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl shadow-lg text-sm font-medium max-w-sm w-full text-center transition-all animate-fade-in ${
+          toast.type === 'success' ? 'bg-green-500 text-white' :
+          toast.type === 'error' ? 'bg-red-500 text-white' :
+          'bg-foreground text-background'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
       <div className="space-y-6 animate-fade-in">
         
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-display font-bold text-foreground">
-            Dashboard
-          </h1>
-          <button
-            onClick={loadDashboardData}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <div>
+            <h1 className="text-2xl font-display font-bold text-foreground">Dashboard</h1>
+            <div className="flex items-center gap-1.5 mt-1">
+              {isConnected ? (
+                <>
+                  <Wifi className="w-3 h-3 text-green-500" />
+                  <span className="text-xs text-green-600 font-medium">Live</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3 text-red-400" />
+                  <span className="text-xs text-red-500">Offline</span>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Notification bell for pending delivery requests */}
+            {deliveryRequests.length > 0 && (
+              <div className="relative">
+                <Bell className="w-6 h-6 text-primary animate-pulse" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                  {deliveryRequests.length}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={loadDashboardData}
+              disabled={loading}
+              className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors text-sm"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
-          </div>
-        )}
-
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {statsData.map((s) => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="border border-border/50 rounded-xl">
+              <div key={s.label} className="border border-border/50 rounded-xl bg-card hover:shadow-sm transition-shadow">
                 <div className="p-4 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
                     <Icon className={`w-5 h-5 ${s.color}`} />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                    <p className="text-xs text-muted-foreground leading-tight">{s.label}</p>
                     <p className="text-lg font-bold text-foreground">{s.value}</p>
                   </div>
                 </div>
@@ -175,65 +294,58 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* Active Order */}
+        {/* Active Order Card */}
         {activeOrder && (
-          <div className="border border-primary/30 bg-primary/5 rounded-xl">
-            <div className="p-4 pb-2">
-              <div className="flex items-center justify-between">
-                <p className="text-base font-semibold">Active Delivery</p>
-
-                {/* Badge */}
-                <span className="px-2 py-1 text-xs rounded-md bg-primary text-primary-foreground">
-                  {activeOrder.orderStatus === 'out_for_delivery' ? 'Out for Delivery' : 'Picked Up'}
-                </span>
-              </div>
+          <div className="border-2 border-primary/30 bg-primary/5 rounded-2xl overflow-hidden">
+            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              <p className="text-base font-bold text-foreground">🚀 Active Delivery</p>
+              <span className={`px-3 py-1 text-xs rounded-full font-medium ${getStatusBadge(activeOrder.orderStatus).bg}`}>
+                {getStatusBadge(activeOrder.orderStatus).label}
+              </span>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="p-4 pt-2 space-y-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-medium text-foreground">
-                    {activeOrder.orderNumber}
-                  </p>
+                  <p className="font-semibold text-foreground">{activeOrder.orderNumber}</p>
                   <p className="text-sm text-muted-foreground">
-                    {activeOrder.shopId?.fullname} → {activeOrder.customerId?.fullname}
+                    {activeOrder.shopId?.fullname || activeOrder.shopId?.shopName} → {activeOrder.customerId?.fullname}
                   </p>
                 </div>
-
                 <div className="text-right">
-                  <p className="text-sm font-medium text-primary">
-                    ₹{activeOrder.totalAmount?.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {activeOrder.paymentMethod}
-                  </p>
+                  <p className="text-lg font-bold text-primary">₹{activeOrder.totalAmount?.toFixed(0)}</p>
+                  <p className="text-xs text-muted-foreground">{activeOrder.paymentMethod}</p>
                 </div>
               </div>
 
               {activeOrder.deliveryAddressId && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  <span>{activeOrder.deliveryAddressId.addressLine1}</span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                  <MapPin className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{activeOrder.deliveryAddressId.addressLine1}</span>
                 </div>
               )}
 
-              {/* Button */}
               <button
                 onClick={() => handleViewOrder(activeOrder._id)}
-                className="w-full text-sm px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                className="w-full text-sm px-4 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
               >
-                View Order Details
+                View Order & Take Action →
               </button>
             </div>
           </div>
         )}
 
-        {/* Incoming Orders */}
+        {/* Available Orders Section */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-foreground">
-              Available Orders
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-foreground">Available Orders</h2>
+              {availableOrders.length > 0 && (
+                <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full font-semibold">
+                  {availableOrders.length}
+                </span>
+              )}
+            </div>
             <button
               onClick={() => router.push('/orders-summary')}
               className="text-sm text-primary hover:underline"
@@ -243,70 +355,69 @@ export default function Dashboard() {
           </div>
 
           {availableOrders.length === 0 ? (
-            <div className="border border-border/50 rounded-xl p-8 text-center">
-              <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground">No available orders at the moment</p>
+            <div className="border border-border/50 rounded-xl p-10 text-center bg-card">
+              <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-40" />
+              <p className="text-muted-foreground font-medium">No available orders</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isConnected ? 'New orders will appear here automatically' : 'Connect to receive new orders'}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {availableOrders.slice(0, 3).map((order) => (
-                <div
-                  key={order._id}
-                  className="border border-border/50 rounded-xl animate-slide-in-right"
-                >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {order.orderNumber}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {order.shopId?.fullname}
-                        </p>
+              {availableOrders.slice(0, 5).map((order) => {
+                const orderId = order._id?.toString();
+                const isProcessing = actionLoading === orderId;
+                return (
+                  <div
+                    key={orderId}
+                    className="border border-border/50 rounded-xl bg-card animate-slide-in-right hover:shadow-sm transition-shadow"
+                  >
+                    <div className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="font-semibold text-foreground">{order.orderNumber}</p>
+                          <p className="text-sm text-muted-foreground">{order.shopId?.fullname || order.shopId?.shopName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-foreground">₹{order.totalAmount?.toFixed ? order.totalAmount.toFixed(0) : order.totalAmount}</p>
+                          {order.distance && (
+                            <p className="text-xs text-muted-foreground">{order.distance}</p>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className="font-semibold text-foreground">
-                          ₹{order.totalAmount?.toFixed(2)}
+                      {order.customerId?.fullname && (
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Customer: {order.customerId.fullname} • {order.paymentMethod}
                         </p>
-                        {order.distance && (
-                          <p className="text-xs text-muted-foreground">
-                            {order.distance.toFixed(1)} km
-                          </p>
-                        )}
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleAcceptOrder(orderId)}
+                          disabled={isProcessing || !!actionLoading}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-sm px-3 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all font-semibold active:scale-95"
+                        >
+                          {isProcessing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                          {isProcessing ? 'Accepting...' : 'Accept'}
+                        </button>
+                        <button
+                          onClick={() => handleRejectOrder(orderId)}
+                          disabled={isProcessing || !!actionLoading}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-sm px-3 py-2.5 rounded-xl border border-border hover:bg-red-50 hover:border-red-200 hover:text-red-600 disabled:opacity-50 transition-all active:scale-95"
+                        >
+                          <X className="w-4 h-4" />
+                          Reject
+                        </button>
                       </div>
-                    </div>
-
-                    {/* Customer Info */}
-                    <div className="mb-3 text-sm text-muted-foreground">
-                      <p>Customer: {order.customerId?.fullname}</p>
-                      <p>Payment: {order.paymentMethod}</p>
-                    </div>
-
-                    <div className="flex gap-2">
-                      {/* Accept */}
-                      <button
-                        onClick={() => handleAcceptOrder(order._id)}
-                        disabled={isLoading}
-                        className="flex-1 flex items-center justify-center gap-1 text-sm px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                      >
-                        <Check className="w-4 h-4" />
-                        Accept
-                      </button>
-
-                      {/* Reject */}
-                      <button
-                        onClick={() => handleRejectOrder(order._id)}
-                        disabled={isLoading}
-                        className="flex-1 flex items-center justify-center gap-1 text-sm px-3 py-2 rounded-lg border border-border hover:bg-muted disabled:opacity-50 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                        Reject
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -315,11 +426,9 @@ export default function Dashboard() {
         {assignedOrders.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-foreground">
-                My Orders
-              </h2>
+              <h2 className="text-lg font-bold text-foreground">My Orders</h2>
               <button
-                onClick={() => router.push('/orders-summary?tab=assigned')}
+                onClick={() => router.push('/orders-summary')}
                 className="text-sm text-primary hover:underline"
               >
                 View All
@@ -327,36 +436,27 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {assignedOrders.slice(0, 4).map((order) => (
-                <div
-                  key={order._id}
-                  className="border border-border/50 rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => handleViewOrder(order._id)}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="font-medium text-foreground text-sm">
-                        {order.orderNumber}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {order.customerId?.fullname}
-                      </p>
+              {assignedOrders.slice(0, 4).map((order) => {
+                const badge = getStatusBadge(order.orderStatus);
+                return (
+                  <div
+                    key={order._id}
+                    className="border border-border/50 rounded-xl p-4 bg-card hover:shadow-md transition-shadow cursor-pointer active:scale-[0.99]"
+                    onClick={() => handleViewOrder(order._id)}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-semibold text-foreground text-sm">{order.orderNumber}</p>
+                        <p className="text-xs text-muted-foreground">{order.customerId?.fullname}</p>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.bg}`}>
+                        {badge.label}
+                      </span>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-md ${
-                      order.orderStatus === 'delivered' 
-                        ? 'bg-green-100 text-green-700'
-                        : order.orderStatus === 'out_for_delivery'
-                        ? 'bg-orange-100 text-orange-700'
-                        : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {order.orderStatus.replace(/_/g, ' ')}
-                    </span>
+                    <p className="text-base font-bold text-foreground">₹{order.totalAmount?.toFixed ? order.totalAmount.toFixed(0) : order.totalAmount}</p>
                   </div>
-                  <p className="text-sm font-semibold text-foreground">
-                    ₹{order.totalAmount?.toFixed(2)}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

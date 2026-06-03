@@ -1,9 +1,48 @@
 'use client';
 
-import { User, Phone, Mail, Bike, Shield, Edit } from "lucide-react";
+import { User, Phone, Mail, Bike, Shield, Edit, Loader2 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
+import { useProfile } from "@/hooks/useProfile";
+import { useRouter } from "next/navigation";
 
 const Profile = () => {
+  const { profile, isLoading } = useProfile();
+  const router = useRouter();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const pUser = profile?.user || {};
+  const pDelivery = profile?.deliveryBoy || {};
+
+  const displayName = pUser.fullname || (pDelivery.firstName ? `${pDelivery.firstName} ${pDelivery.lastName || ''}`.trim() : 'Delivery Partner');
+  const getInitials = (name) => {
+    if (!name) return 'DP';
+    const names = name.split(' ');
+    if (names.length >= 2) return `${names[0][0]}${names[1][0]}`.toUpperCase();
+    return name[0].toUpperCase();
+  };
+  const displayInitials = getInitials(displayName);
+
+  let addressStr = 'Not Provided';
+  if (typeof pDelivery.address === 'string') {
+    addressStr = pDelivery.address;
+  } else if (pDelivery.address) {
+    const addrParts = [pDelivery.address.street, pDelivery.address.city, pDelivery.address.state, pDelivery.address.pincode].filter(Boolean);
+    if (addrParts.length > 0) addressStr = addrParts.join(', ');
+  }
+
+  const phone = pUser.phone || pDelivery.emergencyContact || 'Not Provided';
+  const email = pUser.email || 'Not Provided';
+  const vehicleType = pDelivery.vehicleType || 'Not Provided';
+  const vehicleNumber = pDelivery.vehicleNumber || 'Not Provided';
+  const profileImage = pDelivery.profileImage;
+
   return (
     <div className="p-4">
       <div className="space-y-6 animate-fade-in max-w-2xl">
@@ -18,18 +57,22 @@ const Profile = () => {
             <div className="flex flex-col sm:flex-row items-center gap-4">
 
               {/* Avatar */}
-              <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center text-xl font-bold text-secondary-foreground">
-                RK
+              <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center text-xl font-bold text-secondary-foreground overflow-hidden">
+                {profileImage ? (
+                  <img src={profileImage} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  displayInitials
+                )}
               </div>
 
               {/* Info */}
               <div className="text-center sm:text-left flex-1">
                 <h2 className="text-xl font-semibold text-foreground">
-                  Rahul Kumar
+                  {displayName}
                 </h2>
 
                 <p className="text-sm text-muted-foreground">
-                  Delivery Partner since Jan 2024
+                  Delivery Partner
                 </p>
 
                 <div className="flex items-center gap-2 mt-2 justify-center sm:justify-start">
@@ -49,7 +92,7 @@ const Profile = () => {
               </div>
 
               {/* Edit Button */}
-              <button className="flex items-center gap-1 text-sm px-3 py-2 rounded-lg border border-border">
+              <button onClick={() => router.push('/settings')} className="flex items-center gap-1 text-sm px-3 py-2 rounded-lg border border-border hover:bg-muted transition-colors">
                 <Edit className="w-4 h-4" />
                 Edit
               </button>
@@ -71,21 +114,21 @@ const Profile = () => {
               <div className="flex items-center gap-3">
                 <Phone className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">
-                  +91 9876543210
+                  {phone}
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">
-                  rahul@email.com
+                  {email}
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
                 <User className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-foreground">
-                  B-12, Sector 18, Noida
+                  {addressStr}
                 </span>
               </div>
             </div>
@@ -100,12 +143,12 @@ const Profile = () => {
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <Bike className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-foreground">Bike</span>
+                <span className="text-sm text-foreground capitalize">{vehicleType}</span>
               </div>
 
               <div className="flex items-center gap-3">
                 <span className="text-sm text-foreground">
-                  UP 16 AB 1234
+                  {vehicleNumber}
                 </span>
               </div>
 

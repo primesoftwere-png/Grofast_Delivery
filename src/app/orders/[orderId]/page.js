@@ -12,7 +12,8 @@ import {
   Clock,
   CheckCircle,
   Loader2,
-  Key
+  Key,
+  AlertCircle
 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useSocketContext } from "@/components/SocketProvider";
@@ -27,8 +28,7 @@ export default function OrderDetails() {
   const [loading, setLoading] = useState(true);
   const [pickupOTP, setPickupOTP] = useState('');
   const [deliveryOTP, setDeliveryOTP] = useState('');
-  const [showPickupOTP, setShowPickupOTP] = useState(false);
-  const [showDeliveryOTP, setShowDeliveryOTP] = useState(false);
+  const [actionMessage, setActionMessage] = useState(null); // { type: 'success'|'error', text: string }
 
   const {
     getOrderDetails,
@@ -89,6 +89,11 @@ export default function OrderDetails() {
     };
   }, [orderId]);
 
+  const showMessage = (type, text, duration = 4000) => {
+    setActionMessage({ type, text });
+    setTimeout(() => setActionMessage(null), duration);
+  };
+
   const loadOrderDetails = async () => {
     setLoading(true);
     try {
@@ -97,7 +102,7 @@ export default function OrderDetails() {
       setItems(response.data.items || []);
     } catch (err) {
       console.error('Failed to load order details:', err);
-      alert('Failed to load order details');
+      showMessage('error', 'Failed to load order details');
     } finally {
       setLoading(false);
     }
@@ -105,67 +110,73 @@ export default function OrderDetails() {
 
   const handleMarkPickedUp = async () => {
     if (!pickupOTP || pickupOTP.length !== 6) {
-      alert('Please enter a valid 6-digit OTP');
+      showMessage('error', 'Please enter a valid 6-digit OTP from the shopkeeper');
       return;
     }
 
     try {
       await markPickedUp(orderId, pickupOTP);
-      alert('Order marked as picked up!');
+      showMessage('success', '✅ Order picked up! Head to customer address.');
       loadOrderDetails();
       setPickupOTP('');
     } catch (err) {
-      alert(err.message || 'Failed to mark as picked up');
+      showMessage('error', err.message || 'Failed to mark as picked up');
     }
   };
 
   const handleStartDelivery = async () => {
     try {
       await startDelivery(orderId);
-      alert('Delivery started!');
+      showMessage('success', '🚀 Delivery started!');
       loadOrderDetails();
     } catch (err) {
-      alert(err.message || 'Failed to start delivery');
+      showMessage('error', err.message || 'Failed to start delivery');
     }
   };
 
   const handleCompleteDelivery = async () => {
     if (!deliveryOTP || deliveryOTP.length !== 6) {
-      alert('Please enter a valid 6-digit OTP');
+      showMessage('error', 'Please enter a valid 6-digit OTP from the customer');
       return;
     }
 
     try {
       await completeDelivery(orderId, deliveryOTP);
-      alert('Delivery completed successfully!');
-      router.push('/orders-summary');
+      showMessage('success', '🎉 Delivery completed! Earnings added to wallet.');
+      setTimeout(() => router.push('/orders-summary'), 2000);
     } catch (err) {
-      alert(err.message || 'Failed to complete delivery');
+      showMessage('error', err.message || 'Failed to complete delivery');
     }
   };
 
   const handleGeneratePickupOTP = async () => {
     try {
       const response = await generatePickupOTP(orderId);
-      setShowPickupOTP(true);
-      alert(`Pickup OTP: ${response.data.otp}`);
+      showMessage('info', `Pickup OTP generated. Show to shopkeeper.`);
     } catch (err) {
-      alert(err.message || 'Failed to generate OTP');
+      showMessage('error', err.message || 'Failed to generate OTP');
     }
   };
 
   const handleGenerateDeliveryOTP = async () => {
     try {
       const response = await generateDeliveryOTP(orderId);
-      setShowDeliveryOTP(true);
-      alert(`Delivery OTP: ${response.data.otp}`);
+      showMessage('info', `Delivery OTP generated.`);
     } catch (err) {
-      alert(err.message || 'Failed to generate OTP');
+      showMessage('error', err.message || 'Failed to generate OTP');
     }
   };
 
   const getStatusColor = (status) => {
     const colors = {
+      // Uppercase (backend)
+      'CONFIRMED': 'bg-blue-100 text-blue-700',
+      'ASSIGNED_TO_DELIVERY': 'bg-purple-100 text-purple-700',
+      'READY_FOR_PICKUP': 'bg-yellow-100 text-yellow-700',
+      'OUT_FOR_DELIVERY': 'bg-orange-100 text-orange-700',
+      'DELIVERED': 'bg-green-100 text-green-700',
+      'CANCELLED': 'bg-red-100 text-red-700',
+      // Lowercase (legacy)
       confirmed: 'bg-blue-100 text-blue-700',
       ready_for_pickup: 'bg-yellow-100 text-yellow-700',
       picked_up: 'bg-purple-100 text-purple-700',
@@ -233,8 +244,20 @@ export default function OrderDetails() {
 
         {/* Error Message */}
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {error}
+          </div>
+        )}
+
+        {/* Action Message */}
+        {actionMessage && (
+          <div className={`p-4 rounded-xl text-sm font-medium flex items-start gap-2 ${
+            actionMessage.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' :
+            actionMessage.type === 'error' ? 'bg-red-50 border border-red-200 text-red-700' :
+            'bg-blue-50 border border-blue-200 text-blue-700'
+          }`}>
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            {actionMessage.text}
           </div>
         )}
 
@@ -326,9 +349,11 @@ export default function OrderDetails() {
         )}
 
         {/* Actions based on status */}
-        {order.orderStatus === 'ready_for_pickup' && (
-          <div className="border border-border/50 rounded-xl p-4">
-            <h2 className="font-semibold text-foreground mb-3">Mark as Picked Up</h2>
+        {/* ASSIGNED_TO_DELIVERY: Delivery boy needs to go pick up order, enter OTP */}
+        {(order.orderStatus === 'ASSIGNED_TO_DELIVERY' || order.orderStatus === 'READY_FOR_PICKUP' || order.orderStatus === 'ready_for_pickup') && (
+          <div className="border border-border/50 rounded-xl p-4 bg-card">
+            <h2 className="font-semibold text-foreground mb-1">Step 1: Pick Up Order</h2>
+            <p className="text-sm text-muted-foreground mb-3">Get the 6-digit OTP from the shopkeeper and enter it below to confirm pickup.</p>
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-foreground mb-2 block">
@@ -364,22 +389,11 @@ export default function OrderDetails() {
           </div>
         )}
 
-        {order.orderStatus === 'picked_up' && (
-          <div className="border border-border/50 rounded-xl p-4">
-            <button
-              onClick={handleStartDelivery}
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-            >
-              <Clock className="w-5 h-5" />
-              Start Delivery
-            </button>
-          </div>
-        )}
-
-        {order.orderStatus === 'out_for_delivery' && (
-          <div className="border border-border/50 rounded-xl p-4">
-            <h2 className="font-semibold text-foreground mb-3">Complete Delivery</h2>
+        {/* OUT_FOR_DELIVERY: Delivery boy has picked up, now delivers to customer */}
+        {(order.orderStatus === 'OUT_FOR_DELIVERY' || order.orderStatus === 'out_for_delivery') && (
+          <div className="border border-border/50 rounded-xl p-4 bg-card">
+            <h2 className="font-semibold text-foreground mb-1">Step 2: Complete Delivery</h2>
+            <p className="text-sm text-muted-foreground mb-3">Get the 6-digit OTP from the customer to confirm delivery.</p>
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-foreground mb-2 block">

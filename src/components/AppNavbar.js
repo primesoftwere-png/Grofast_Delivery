@@ -4,11 +4,14 @@ import { useState, useEffect } from "react";
 import { Bell, AlertCircle, Loader2, Wifi, WifiOff } from "lucide-react";
 import { useAvailability } from "@/hooks/useAvailability";
 import { useSocketContext } from "@/components/SocketProvider";
+import { useProfile } from "@/hooks/useProfile";
 import locationService from "@/services/locationService";
+import { useRouter } from "next/navigation";
 
 export function AppNavbar() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const router = useRouter();
   
   const {
     status,
@@ -19,6 +22,17 @@ export function AppNavbar() {
   } = useAvailability();
 
   const { isConnected, socketService } = useSocketContext();
+  const { profile } = useProfile();
+
+  const getInitials = (name) => {
+    if (!name) return 'RK';
+    const names = name.split(' ');
+    if (names.length >= 2) return `${names[0][0]}${names[1][0]}`.toUpperCase();
+    return name[0].toUpperCase();
+  };
+  
+  const displayName = profile?.user?.fullname || (profile?.deliveryBoy?.firstName ? `${profile?.deliveryBoy?.firstName || ''} ${profile?.deliveryBoy?.lastName || ''}`.trim() : 'Delivery Boy');
+  const displayInitials = getInitials(displayName);
 
   useEffect(() => {
     // Load status on mount
@@ -153,13 +167,20 @@ export function AppNavbar() {
           </button>
 
           {/* Profile */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-semibold text-secondary-foreground">
-              RK
+          <div 
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => router.push('/profile')}
+          >
+            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-semibold text-secondary-foreground overflow-hidden">
+              {profile?.deliveryBoy?.profileImage ? (
+                <img src={profile.deliveryBoy.profileImage} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                displayInitials
+              )}
             </div>
 
             <span className="text-sm font-medium text-foreground hidden sm:block">
-              Rahul K.
+              {displayName}
             </span>
           </div>
 

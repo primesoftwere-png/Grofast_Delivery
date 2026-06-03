@@ -18,7 +18,6 @@ const menuItems = [
   { title: "Orders Summary", url: "/orders-summary", icon: Package },
   { title: "Income", url: "/income", icon: DollarSign },
   { title: "Chat", url: "/chat", icon: MessageCircle },
-  { title: "Profile", url: "/profile", icon: User },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
