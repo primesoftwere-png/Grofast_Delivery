@@ -82,12 +82,12 @@ export function useOrders() {
     }
   };
 
-  const markPickedUp = async (orderId, pickupOTP) => {
+  const markPickedUp = async (orderToken, pickupOTP) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await deliveryOrderAPI.markPickedUp(orderId, pickupOTP);
+      const response = await deliveryOrderAPI.markPickedUp(orderToken, pickupOTP);
       return response;
     } catch (err) {
       setError(err.message || 'Failed to mark order as picked up');

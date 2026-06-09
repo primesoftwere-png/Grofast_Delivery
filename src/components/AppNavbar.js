@@ -8,7 +8,7 @@ import { useProfile } from "@/hooks/useProfile";
 import locationService from "@/services/locationService";
 import { useRouter } from "next/navigation";
 
-export function AppNavbar() {
+export function AppNavbar({ toggleMenu }) {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
@@ -80,7 +80,7 @@ export function AppNavbar() {
         {/* Left */}
         <div className="flex items-center gap-3">
           {/* Sidebar Trigger (manual) */}
-          <button className="text-foreground text-lg">
+          <button className="text-foreground text-lg md:hidden" onClick={toggleMenu}>
             ☰
           </button>
 

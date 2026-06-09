@@ -21,7 +21,7 @@ const menuItems = [
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ isOpen, setIsOpen }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -29,22 +29,30 @@ export function AppSidebar() {
   const collapsed = false;
 
   return (
-    <div className="w-64 min-h-screen border-r border-sidebar-border flex flex-col bg-sidebar">
+    <div className={`fixed inset-y-0 left-0 z-50 w-64 min-h-screen border-r border-sidebar-border flex flex-col bg-card transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
 
       {/* Header */}
       {!collapsed && (
-        <div className="px-4 pb-4 pt-4 mb-2 border-b border-sidebar-border">
-          <h2 className="text-lg font-display font-bold text-primary">
-            GroFastdv
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Delivery Partner
-          </p>
+        <div className="px-4 pb-4 pt-4 mb-2 border-b border-sidebar-border flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-display font-bold text-primary">
+              GroFastdv
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Delivery Partner
+            </p>
+          </div>
+          <button 
+            className="md:hidden text-muted-foreground hover:text-foreground"
+            onClick={() => setIsOpen && setIsOpen(false)}
+          >
+            ✕
+          </button>
         </div>
       )}
 
       {/* Menu */}
-      <div className="flex-1 px-2 space-y-1">
+      <div className="flex-1 px-2 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.url;
@@ -52,15 +60,18 @@ export function AppSidebar() {
           return (
             <button
               key={item.title}
-              onClick={() => router.push(item.url)}
+              onClick={() => {
+                router.push(item.url);
+                if (setIsOpen) setIsOpen(false);
+              }}
               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
                 ${
                   isActive
                     ? "bg-primary/10 text-primary font-medium"
-                    : "hover:bg-sidebar-accent/50"
+                    : "hover:bg-accent hover:text-accent-foreground"
                 }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 flex-shrink-0" />
               {!collapsed && <span>{item.title}</span>}
             </button>
           );
@@ -68,12 +79,15 @@ export function AppSidebar() {
       </div>
 
       {/* Logout */}
-      <div className="p-2">
+      <div className="p-2 border-t border-sidebar-border">
         <button
-          onClick={() => router.push("/login")}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10"
+          onClick={() => {
+            router.push("/login");
+            if (setIsOpen) setIsOpen(false);
+          }}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-4 w-4 flex-shrink-0" />
           {!collapsed && <span>Logout</span>}
         </button>
       </div>

@@ -115,7 +115,7 @@ export default function OrderDetails() {
     }
 
     try {
-      await markPickedUp(orderId, pickupOTP);
+      await markPickedUp(order.orderToken, pickupOTP);
       showMessage('success', '✅ Order picked up! Head to customer address.');
       loadOrderDetails();
       setPickupOTP('');

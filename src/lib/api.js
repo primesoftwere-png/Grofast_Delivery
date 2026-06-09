@@ -1,6 +1,6 @@
 // API Configuration and Helper Functions
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://172.20.10.5:8000';
 
 /**
  * Generic API request handler
@@ -262,14 +262,14 @@ export const deliveryOrderAPI = {
 
   /**
    * Mark order as picked up (with OTP)
-   * @param {string} orderId - Order ID
+   * @param {string} orderToken - Order Token
    * @param {string} pickupOTP - 6-digit OTP from shopkeeper
    * @returns {Promise<Object>} Updated order
    */
-  markPickedUp: async (orderId, pickupOTP) => {
+  markPickedUp: async (orderToken, pickupOTP) => {
     return await apiRequest('/api/delivery/orders/pickup', {
       method: 'POST',
-      body: JSON.stringify({ orderId, pickupOTP }),  // Send orderId (not orderToken)
+      body: JSON.stringify({ orderToken: orderToken, pickupOTP }),
     });
   },
 

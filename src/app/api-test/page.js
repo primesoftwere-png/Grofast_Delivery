@@ -209,7 +209,7 @@ export default function APITestPage() {
             Testing Instructions
           </h3>
           <ol className="list-decimal list-inside space-y-2 text-sm text-blue-700">
-            <li>Make sure your backend API is running on http://localhost:8001</li>
+            <li>Make sure your backend API is running on http://172.20.10.5:8000</li>
             <li>Test Register first to create a new user</li>
             <li>Then test Login with the same credentials</li>
             <li>Test Verify Email (OTP is hardcoded as 123456)</li>
