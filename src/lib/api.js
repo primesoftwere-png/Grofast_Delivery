@@ -376,3 +376,53 @@ export const deliveryProfileAPI = {
     });
   }
 };
+
+/**
+ * Delivery Boy Wallet & Income APIs
+ */
+export const deliveryWalletAPI = {
+  /**
+   * Get Income Dashboard Data
+   * @returns {Promise<Object>} Dashboard stats
+   */
+  getIncomeDashboard: async () => {
+    return await apiRequest('/api/delivery/wallet/dashboard', {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Get Wallet Balance
+   * @returns {Promise<Object>} Balance details
+   */
+  getWalletBalance: async () => {
+    return await apiRequest('/api/delivery/wallet/balance', {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Get Wallet Transactions
+   * @param {Object} params - Query params like page, limit, transactionType
+   * @returns {Promise<Object>} Transactions list
+   */
+  getTransactions: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/api/delivery/wallet/transactions${queryString ? `?${queryString}` : ''}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Request Settlement
+   * @param {number} amount - Amount to settle
+   * @returns {Promise<Object>} Response
+   */
+  requestSettlement: async (amount) => {
+    return await apiRequest('/api/delivery/settlement/request', {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    });
+  }
+};

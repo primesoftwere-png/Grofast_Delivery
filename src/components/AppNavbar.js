@@ -75,12 +75,12 @@ export function AppNavbar({ toggleMenu }) {
 
   return (
     <>
-      <header className="h-14 flex items-center justify-between border-b border-border bg-card px-4 sticky top-0 z-30">
+      <header className="h-14 flex items-center justify-between border-b border-border bg-card px-2 sm:px-4 sticky top-0 z-30 w-full">
 
         {/* Left */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Sidebar Trigger (manual) */}
-          <button className="text-foreground text-lg md:hidden" onClick={toggleMenu}>
+          <button className="text-foreground text-xl md:hidden p-1" onClick={toggleMenu}>
             ☰
           </button>
 
@@ -92,7 +92,7 @@ export function AppNavbar({ toggleMenu }) {
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
 
           {/* Socket Connection Status */}
           <div className="hidden sm:flex items-center gap-1.5">
@@ -110,7 +110,7 @@ export function AppNavbar({ toggleMenu }) {
           </div>
 
           {/* Online / Offline Toggle */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <div
               className={`w-2 h-2 rounded-full ${
                 status.isOnline
@@ -120,7 +120,7 @@ export function AppNavbar({ toggleMenu }) {
             />
 
             <span
-              className={`text-xs font-medium ${
+              className={`text-xs font-medium hidden sm:block ${
                 status.isOnline ? "text-primary" : "text-destructive"
               }`}
             >

@@ -25,7 +25,7 @@ export default function ClientLayout({ children }) {
 
   // Regular layout with sidebar and navbar for dashboard pages
   return (
-    <div className="min-h-screen flex w-full relative">
+    <div className="min-h-[100dvh] flex w-full relative">
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div 

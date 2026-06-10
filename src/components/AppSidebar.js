@@ -17,6 +17,7 @@ const menuItems = [
   { title: "Manage Map", url: "/manage-map", icon: Map },
   { title: "Orders Summary", url: "/orders-summary", icon: Package },
   { title: "Income", url: "/income", icon: DollarSign },
+  { title: "Wallet", url: "/wallet", icon: DollarSign },
   { title: "Chat", url: "/chat", icon: MessageCircle },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
@@ -29,7 +30,7 @@ export function AppSidebar({ isOpen, setIsOpen }) {
   const collapsed = false;
 
   return (
-    <div className={`fixed inset-y-0 left-0 z-50 w-64 min-h-screen border-r border-sidebar-border flex flex-col bg-card transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <div className={`fixed inset-y-0 left-0 z-50 w-64 h-[100dvh] md:h-screen md:min-h-screen border-r border-sidebar-border flex flex-col bg-card transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
 
       {/* Header */}
       {!collapsed && (
@@ -43,7 +44,7 @@ export function AppSidebar({ isOpen, setIsOpen }) {
             </p>
           </div>
           <button 
-            className="md:hidden text-muted-foreground hover:text-foreground"
+            className="md:hidden text-muted-foreground hover:text-foreground p-2 text-xl"
             onClick={() => setIsOpen && setIsOpen(false)}
           >
             ✕
