@@ -114,28 +114,13 @@ export default function Dashboard() {
   useEffect(() => {
     // When a new order becomes available via socket, add to list
     const handleOrderAvailable = (data) => {
-      setAvailableOrders(prev => {
-        const orderId = data.orderId?.toString();
-        if (prev.some(o => o._id?.toString() === orderId)) return prev;
-        // Add as a lightweight order entry from socket data
-        return [{
-          _id: orderId,
-          orderNumber: data.orderNumber,
-          totalAmount: data.totalAmount,
-          paymentMethod: data.paymentMethod,
-          shopId: { fullname: data.shopName, phone: data.shopPhone },
-          status: 'CONFIRMED',
-          orderStatus: 'CONFIRMED',
-          distance: data.distance,
-          fromSocket: true
-        }, ...prev];
-      });
+      // Reload from server to get accurate data
+      loadDashboardData();
     };
 
     // When order is taken by another delivery boy
     const handleOrderTaken = (data) => {
-      const orderId = data.orderId?.toString();
-      setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId));
+      loadDashboardData();
     };
 
     // When delivery boy accepts an order → reload dashboard
@@ -149,6 +134,7 @@ export default function Dashboard() {
     };
 
     socketService.on('order_available', handleOrderAvailable);
+    socketService.on('delivery_request', handleOrderAvailable);
     socketService.on('order_taken', handleOrderTaken);
     socketService.on('order_assigned', handleOrderAssigned);
     socketService.on('status_updated', handleStatusUpdate);
@@ -157,6 +143,7 @@ export default function Dashboard() {
 
     return () => {
       socketService.off('order_available', handleOrderAvailable);
+      socketService.off('delivery_request', handleOrderAvailable);
       socketService.off('order_taken', handleOrderTaken);
       socketService.off('order_assigned', handleOrderAssigned);
       socketService.off('status_updated', handleStatusUpdate);
