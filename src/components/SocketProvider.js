@@ -97,6 +97,23 @@ export function SocketProvider({ children }) {
         if (prev.some(req => req.orderId?.toString() === orderId)) return prev;
         return [...prev, { ...data, orderId, receivedAt: Date.now() }];
       });
+
+      // Show browser notification
+      if (typeof window !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('🚚 New Delivery Available!', {
+          body: `Order ${data.orderNumber || ''} • ₹${data.totalAmount || data.estimatedEarnings || ''} • ${data.distance || ''}`,
+          icon: '/icon.png',
+          tag: data.orderId?.toString()
+        });
+      }
+
+      // Play notification sound
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(e => console.log('Audio play skipped:', e));
+      } catch (e) {
+        // Silent fail
+      }
     };
 
     const handleDeliveryRequestCancelled = (data) => {
