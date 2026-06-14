@@ -1,6 +1,6 @@
 // Custom React Hook for Availability Management
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { deliveryAvailabilityAPI } from '@/lib/api';
 
 export function useAvailability() {
@@ -17,7 +17,7 @@ export function useAvailability() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const getStatus = async () => {
+  const getStatus = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -31,9 +31,9 @@ export function useAvailability() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const toggleStatus = async (isOnline) => {
+  const toggleStatus = useCallback(async (isOnline) => {
     setIsLoading(true);
     setError(null);
 
@@ -51,15 +51,15 @@ export function useAvailability() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const goOnline = async () => {
+  const goOnline = useCallback(async () => {
     return await toggleStatus(true);
-  };
+  }, [toggleStatus]);
 
-  const goOffline = async () => {
+  const goOffline = useCallback(async () => {
     return await toggleStatus(false);
-  };
+  }, [toggleStatus]);
 
   return {
     status,

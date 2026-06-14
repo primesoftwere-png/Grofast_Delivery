@@ -37,7 +37,22 @@ export function AppNavbar({ toggleMenu }) {
   useEffect(() => {
     // Load status on mount
     loadStatus();
-  }, []);
+
+    // Perfectly fetch API when status updates via socket
+    const handleStatusUpdate = () => {
+      loadStatus();
+    };
+
+    if (socketService) {
+      socketService.on('online_status_updated', handleStatusUpdate);
+    }
+
+    return () => {
+      if (socketService) {
+        socketService.off('online_status_updated', handleStatusUpdate);
+      }
+    };
+  }, [getStatus, socketService]);
 
   const loadStatus = async () => {
     try {

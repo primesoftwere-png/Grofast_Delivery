@@ -1,13 +1,13 @@
 // Custom React Hook for Order Management
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { deliveryOrderAPI } from '@/lib/api';
 
 export function useOrders() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const getAvailableOrders = async (params = {}) => {
+  const getAvailableOrders = useCallback(async (params = {}) => {
     setIsLoading(true);
     setError(null);
 
@@ -20,9 +20,9 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const getAssignedOrders = async (status = null) => {
+  const getAssignedOrders = useCallback(async (status = null) => {
     setIsLoading(true);
     setError(null);
 
@@ -35,9 +35,9 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const acceptOrder = async (orderId) => {
+  const acceptOrder = useCallback(async (orderId) => {
     setIsLoading(true);
     setError(null);
 
@@ -50,9 +50,9 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const rejectOrder = async (orderId, reason = '') => {
+  const rejectOrder = useCallback(async (orderId, reason = '') => {
     setIsLoading(true);
     setError(null);
 
@@ -65,9 +65,9 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const getOrderDetails = async (orderId) => {
+  const getOrderDetails = useCallback(async (orderId) => {
     setIsLoading(true);
     setError(null);
 
@@ -80,14 +80,14 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const markPickedUp = async (orderToken, pickupOTP) => {
+  const markPickedUp = useCallback(async (orderId, pickupOTP) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await deliveryOrderAPI.markPickedUp(orderToken, pickupOTP);
+      const response = await deliveryOrderAPI.markPickedUp(orderId, pickupOTP);
       return response;
     } catch (err) {
       setError(err.message || 'Failed to mark order as picked up');
@@ -95,9 +95,9 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const startDelivery = async (orderId) => {
+  const startDelivery = useCallback(async (orderId) => {
     setIsLoading(true);
     setError(null);
 
@@ -110,9 +110,9 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const completeDelivery = async (orderId, deliveryOTP) => {
+  const completeDelivery = useCallback(async (orderId, deliveryOTP) => {
     setIsLoading(true);
     setError(null);
 
@@ -125,9 +125,9 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const generatePickupOTP = async (orderId) => {
+  const generatePickupOTP = useCallback(async (orderId) => {
     setIsLoading(true);
     setError(null);
 
@@ -140,9 +140,9 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const generateDeliveryOTP = async (orderId) => {
+  const generateDeliveryOTP = useCallback(async (orderId) => {
     setIsLoading(true);
     setError(null);
 
@@ -155,7 +155,7 @@ export function useOrders() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   return {
     isLoading,

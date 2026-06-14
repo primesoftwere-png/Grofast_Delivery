@@ -58,15 +58,15 @@ export default function Dashboard() {
     error
   } = useOrders();
 
-  const { socketService, notifications, deliveryRequests, isConnected } = useSocketContext();
+  const { socketService, notifications, deliveryRequests, isConnected, setDeliveryRequests } = useSocketContext();
 
   const showToast = useCallback((type, message, duration = 3000) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), duration);
   }, []);
 
-  const loadDashboardData = useCallback(async () => {
-    setLoading(true);
+  const loadDashboardData = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoading(true);
     try {
       // Try to load available orders (requires online + available status)
       try {
@@ -101,36 +101,52 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   }, [getAvailableOrders, getAssignedOrders]);
 
   // Initial load
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    loadDashboardData(true);
+  }, [loadDashboardData]);
 
   // Real-time socket listeners
   useEffect(() => {
     // When a new order becomes available via socket, add to list
     const handleOrderAvailable = (data) => {
-      // Reload from server to get accurate data
-      loadDashboardData();
+      // Data is already handled by SocketProvider and added to deliveryRequests
+      // We just reload from server in the background for consistency
+      loadDashboardData(false);
     };
 
     // When order is taken by another delivery boy
     const handleOrderTaken = (data) => {
-      loadDashboardData();
+      setActionLoading(null);
+      showToast('info', 'Order taken by another delivery boy');
+      loadDashboardData(false);
     };
 
     // When delivery boy accepts an order → reload dashboard
-    const handleOrderAssigned = () => {
-      loadDashboardData();
+    const handleOrderAssigned = (data) => {
+      const orderId = data?.orderId || data?._id;
+      if (orderId) {
+        setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId?.toString()));
+        if (setDeliveryRequests) {
+          setDeliveryRequests(prev => prev.filter(req => (req.orderId?.toString() || req._id?.toString()) !== orderId?.toString()));
+        }
+      }
+      showToast('success', '✅ Order accepted! Head to the shop for pickup.');
+      setActionLoading(null);
+      loadDashboardData(false);
+      
+      if (orderId) {
+        setTimeout(() => router.push(`/orders/${orderId}`), 1000);
+      }
     };
 
     // When order status changes
     const handleStatusUpdate = () => {
-      loadDashboardData();
+      loadDashboardData(false);
     };
 
     socketService.on('order_available', handleOrderAvailable);
@@ -154,18 +170,33 @@ export default function Dashboard() {
 
   const handleAcceptOrder = async (orderId) => {
     setActionLoading(orderId);
-    try {
-      const response = await acceptOrder(orderId);
-      setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId?.toString()));
-      showToast('success', '✅ Order accepted! Head to the shop for pickup.');
-      loadDashboardData();
-      // Navigate to order details
-      const responseOrderId = response?.data?.orderId || orderId;
-      setTimeout(() => router.push(`/orders/${responseOrderId}`), 1000);
-    } catch (err) {
-      showToast('error', err.message || 'Failed to accept order');
-    } finally {
-      setActionLoading(null);
+    
+    // First try to assign via Socket.io as it's real-time (requested feature)
+    const socketSuccess = socketService.acceptOrder(orderId);
+    
+    if (!socketSuccess) {
+      // Fallback to API if socket is unavailable
+      try {
+        const response = await acceptOrder(orderId);
+        setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId?.toString()));
+        if (setDeliveryRequests) {
+          setDeliveryRequests(prev => prev.filter(req => (req.orderId?.toString() || req._id?.toString()) !== orderId?.toString()));
+        }
+        showToast('success', '✅ Order accepted! Head to the shop for pickup.');
+        loadDashboardData(false);
+        // Navigate to order details
+        const responseOrderId = response?.data?.orderId || orderId;
+        setTimeout(() => router.push(`/orders/${responseOrderId}`), 1000);
+      } catch (err) {
+        showToast('error', err.message || 'Failed to accept order');
+        setActionLoading(null);
+      }
+    } else {
+      // Socket emitted successfully. We rely on handleOrderAssigned listener to handle success
+      // Add a fallback timeout in case socket event is lost
+      setTimeout(() => {
+        setActionLoading(prev => prev === orderId ? null : prev);
+      }, 8000);
     }
   };
 
@@ -174,10 +205,16 @@ export default function Dashboard() {
     try {
       await rejectOrder(orderId, 'Not available');
       setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId?.toString()));
+      if (setDeliveryRequests) {
+        setDeliveryRequests(prev => prev.filter(req => (req.orderId?.toString() || req._id?.toString()) !== orderId?.toString()));
+      }
       showToast('info', 'Order rejected');
     } catch (err) {
       // Remove from UI anyway
       setAvailableOrders(prev => prev.filter(o => o._id?.toString() !== orderId?.toString()));
+      if (setDeliveryRequests) {
+        setDeliveryRequests(prev => prev.filter(req => (req.orderId?.toString() || req._id?.toString()) !== orderId?.toString()));
+      }
     } finally {
       setActionLoading(null);
     }
@@ -193,6 +230,18 @@ export default function Dashboard() {
     { label: "Avg. Delivery", value: `${stats.avgDelivery} min`, icon: Clock, color: "text-blue-500" },
     { label: "Rating", value: stats.rating.toFixed(1), icon: TrendingUp, color: "text-yellow-500" },
   ];
+
+  // Merge API available orders with real-time socket requests for instant UI update
+  const displayOrders = [...availableOrders];
+  deliveryRequests.forEach(req => {
+    const reqId = req.orderId?.toString() || req._id?.toString();
+    if (!displayOrders.some(o => (o._id?.toString() || o.orderId?.toString()) === reqId)) {
+      displayOrders.unshift({
+        ...req,
+        _id: reqId,
+      });
+    }
+  });
 
   if (loading) {
     return (
@@ -251,7 +300,7 @@ export default function Dashboard() {
               </div>
             )}
             <button
-              onClick={loadDashboardData}
+              onClick={() => loadDashboardData(true)}
               disabled={loading}
               className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors text-sm"
             >
@@ -327,9 +376,9 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-foreground">Available Orders</h2>
-              {availableOrders.length > 0 && (
+              {displayOrders.length > 0 && (
                 <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full font-semibold">
-                  {availableOrders.length}
+                  {displayOrders.length}
                 </span>
               )}
             </div>
@@ -341,7 +390,7 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {availableOrders.length === 0 ? (
+          {displayOrders.length === 0 ? (
             <div className="border border-border/50 rounded-xl p-10 text-center bg-card">
               <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-40" />
               <p className="text-muted-foreground font-medium">No available orders</p>
@@ -351,8 +400,8 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {availableOrders.slice(0, 5).map((order) => {
-                const orderId = order._id?.toString();
+              {displayOrders.slice(0, 5).map((order) => {
+                const orderId = order._id?.toString() || order.orderId?.toString();
                 const isProcessing = actionLoading === orderId;
                 return (
                   <div

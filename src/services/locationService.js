@@ -44,7 +44,7 @@ class LocationService {
 
     // Also update at regular intervals
     this.updateInterval = setInterval(() => {
-      this.getCurrentLocation();
+      this.getCurrentLocation().catch(() => {});
     }, interval);
 
     console.log('📍 Location tracking started');
