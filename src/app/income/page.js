@@ -17,26 +17,40 @@ const Income = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  
+  // Date filter states
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+
+  const fetchIncomeData = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      
+      const response = await deliveryWalletAPI.getIncome(params);
+      if (response.success) {
+        setData(response.data);
+      } else {
+        setError(response.message || "Failed to load income data");
+      }
+    } catch (err) {
+      setError(err.message || "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchIncomeData = async () => {
-      try {
-        setLoading(true);
-        const response = await deliveryWalletAPI.getIncomeDashboard();
-        if (response.success) {
-          setData(response.data);
-        } else {
-          setError(response.message || "Failed to load income data");
-        }
-      } catch (err) {
-        setError(err.message || "An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchIncomeData();
-  }, []);
+  }, [startDate, endDate]);
 
   if (loading) {
     return (
@@ -54,21 +68,38 @@ const Income = () => {
     );
   }
 
-  const { cashFlow, onlineFlow, wallet, settlement } = data || {};
+  const { cashFlow, onlineFlow } = data || {};
 
   // For chart, we might not have historical week data from this API, 
   // so we can fallback to static or remove it. Let's just create a simple chart comparing today vs total
   const chartData = [
-    { name: "Today Earnings", value: onlineFlow?.todayEarnings || 0 },
+    { name: "Period Earnings", value: onlineFlow?.periodEarnings || 0 },
     { name: "Total Earnings", value: onlineFlow?.totalEarnings || 0 },
   ];
 
   return (
     <div className="p-4">
       <div className="space-y-6 animate-fade-in">
-        <h1 className="text-2xl font-display font-bold text-foreground">
-          Income
-        </h1>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-2xl font-display font-bold text-foreground">
+            Income
+          </h1>
+          <div className="flex items-center gap-2">
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-3 py-2 border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <span className="text-muted-foreground text-sm">to</span>
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-2 border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -97,10 +128,10 @@ const Income = () => {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">
-                  Today's Earnings
+                  Period Earnings
                 </p>
                 <p className="text-lg font-bold text-foreground">
-                  ₹{onlineFlow?.todayEarnings?.toLocaleString() || 0}
+                  ₹{onlineFlow?.periodEarnings?.toLocaleString() || 0}
                 </p>
               </div>
             </div>
@@ -165,53 +196,7 @@ const Income = () => {
           </div>
         </div>
 
-        {/* Wallet Info Details */}
-        <div className="border border-border/50 rounded-xl">
-          <div className="p-4 pb-2">
-            <p className="text-base font-semibold">
-              Wallet Overview
-            </p>
-          </div>
 
-          <div className="p-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
-                <span className="text-sm font-medium text-foreground">
-                  Wallet Balance
-                </span>
-                <span className={`font-semibold ${wallet?.balance < 0 ? 'text-destructive' : 'text-primary'}`}>
-                  ₹{wallet?.balance?.toLocaleString() || 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
-                <span className="text-sm font-medium text-foreground">
-                  Total COD Collected
-                </span>
-                <span className="font-semibold text-foreground">
-                  ₹{cashFlow?.totalCodCollected?.toLocaleString() || 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
-                <span className="text-sm font-medium text-foreground">
-                  COD Collection Limit
-                </span>
-                <span className="font-semibold text-foreground">
-                  ₹{wallet?.codLimit?.toLocaleString() || 0}
-                </span>
-              </div>
-              {settlement && (
-                <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
-                  <span className="text-sm font-medium text-foreground">
-                    Latest Settlement Status
-                  </span>
-                  <span className="font-semibold text-foreground capitalize">
-                    {settlement.status} (₹{settlement.amount})
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
 
       </div>
     </div>

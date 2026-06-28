@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Package, DollarSign, Clock, TrendingUp, MapPin, Check, X, Loader2, RefreshCw, Wifi, WifiOff, Bell } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useSocketContext } from "@/components/SocketProvider";
+import { toast } from 'react-hot-toast';
 
 // Status badge color mapping (uppercase backend statuses)
 function getStatusBadge(status) {
@@ -41,7 +42,6 @@ export default function Dashboard() {
   const [activeOrder, setActiveOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null); // orderId being processed
-  const [toast, setToast] = useState(null); // { type, message }
   const [stats, setStats] = useState({
     todayOrders: 0,
     todayEarnings: 0,
@@ -60,9 +60,10 @@ export default function Dashboard() {
 
   const { socketService, notifications, deliveryRequests, isConnected, setDeliveryRequests } = useSocketContext();
 
-  const showToast = useCallback((type, message, duration = 3000) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), duration);
+  const showToast = useCallback((type, message) => {
+    if (type === 'success') toast.success(message);
+    else if (type === 'error') toast.error(message);
+    else toast(message);
   }, []);
 
   const loadDashboardData = useCallback(async (showLoader = true) => {
@@ -249,7 +250,6 @@ export default function Dashboard() {
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Loading dashboard...</p>
           </div>
         </div>
       </div>
@@ -258,16 +258,6 @@ export default function Dashboard() {
 
   return (
     <div className="p-4">
-      {/* Toast Notification */}
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl shadow-lg text-sm font-medium max-w-sm w-full text-center transition-all animate-fade-in ${
-          toast.type === 'success' ? 'bg-green-500 text-white' :
-          toast.type === 'error' ? 'bg-red-500 text-white' :
-          'bg-foreground text-background'
-        }`}>
-          {toast.message}
-        </div>
-      )}
 
       <div className="space-y-6 animate-fade-in">
         

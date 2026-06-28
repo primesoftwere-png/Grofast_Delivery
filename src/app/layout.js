@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 import { SocketProvider } from "@/components/SocketProvider";
+import { Toaster } from 'react-hot-toast';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,6 +28,7 @@ export default function RootLayout({ children }) {
       <body className="min-h-full">
         <SocketProvider>
           <ClientLayout>{children}</ClientLayout>
+          <Toaster position="top-center" />
         </SocketProvider>
       </body>
     </html>

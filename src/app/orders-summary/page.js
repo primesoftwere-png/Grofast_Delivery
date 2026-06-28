@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Package, MapPin, Phone, User, Clock, CheckCircle, XCircle, Loader2, RefreshCw, Store } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
+import { toast } from "react-hot-toast";
 
 export default function OrdersSummary() {
   const [activeTab, setActiveTab] = useState("available");
@@ -42,9 +43,9 @@ export default function OrdersSummary() {
     try {
       await acceptOrder(orderId);
       loadOrders();
-      alert('Order accepted successfully!');
+      toast.success('Order accepted successfully!');
     } catch (err) {
-      alert(err.message || 'Failed to accept order');
+      toast.error(err.message || 'Failed to accept order');
     }
   };
 
@@ -53,9 +54,9 @@ export default function OrdersSummary() {
     try {
       await rejectOrder(orderId, reason || '');
       loadOrders();
-      alert('Order rejected');
+      toast.success('Order rejected');
     } catch (err) {
-      alert(err.message || 'Failed to reject order');
+      toast.error(err.message || 'Failed to reject order');
     }
   };
 

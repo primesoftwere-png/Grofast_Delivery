@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { 
   ArrowLeft, 
   Package, 
@@ -17,6 +18,12 @@ import {
 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useSocketContext } from "@/components/SocketProvider";
+import { toast } from 'react-hot-toast';
+
+const MapComponent = dynamic(() => import('@/components/MapComponent'), {
+  ssr: false,
+  loading: () => <div className="w-full h-64 bg-muted rounded-xl animate-pulse flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+});
 
 export default function OrderDetails() {
   const params = useParams();
@@ -28,7 +35,6 @@ export default function OrderDetails() {
   const [loading, setLoading] = useState(true);
   const [pickupOTP, setPickupOTP] = useState('');
   const [deliveryOTP, setDeliveryOTP] = useState('');
-  const [actionMessage, setActionMessage] = useState(null); // { type: 'success'|'error', text: string }
 
   const {
     getOrderDetails,
@@ -89,9 +95,10 @@ export default function OrderDetails() {
     };
   }, [orderId]);
 
-  const showMessage = (type, text, duration = 4000) => {
-    setActionMessage({ type, text });
-    setTimeout(() => setActionMessage(null), duration);
+  const showMessage = (type, text) => {
+    if (type === 'success') toast.success(text);
+    else if (type === 'error') toast.error(text);
+    else toast(text);
   };
 
   const loadOrderDetails = async () => {
@@ -249,17 +256,19 @@ export default function OrderDetails() {
           </div>
         )}
 
-        {/* Action Message */}
-        {actionMessage && (
-          <div className={`p-4 rounded-xl text-sm font-medium flex items-start gap-2 ${
-            actionMessage.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' :
-            actionMessage.type === 'error' ? 'bg-red-50 border border-red-200 text-red-700' :
-            'bg-blue-50 border border-blue-200 text-blue-700'
-          }`}>
-            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            {actionMessage.text}
-          </div>
-        )}
+        {/* Map Section */}
+        <div className="border border-border/50 rounded-xl p-4">
+          <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <MapPin className="w-5 h-5" />
+            Location
+          </h2>
+          <MapComponent 
+            shopLocation={order?.shopDetails} 
+            customerLocation={order?.deliveryAddressId} 
+            orderStatus={order?.orderStatus} 
+          />
+        </div>
+
 
         {/* Customer Info */}
         <div className="border border-border/50 rounded-xl p-4">

@@ -382,11 +382,27 @@ export const deliveryProfileAPI = {
  */
 export const deliveryWalletAPI = {
   /**
-   * Get Income Dashboard Data
+   * Get Pure Income Data
+   * @param {Object} params - Query params like startDate, endDate
+   * @returns {Promise<Object>} Income stats
+   */
+  getIncome: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/api/delivery/income${queryString ? `?${queryString}` : ''}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Get Income Dashboard Data (Wallet Dashboard)
+   * @param {Object} params - Query params like startDate, endDate
    * @returns {Promise<Object>} Dashboard stats
    */
-  getIncomeDashboard: async () => {
-    return await apiRequest('/api/delivery/wallet/dashboard', {
+  getIncomeDashboard: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/api/delivery/wallet/dashboard${queryString ? `?${queryString}` : ''}`;
+    return await apiRequest(endpoint, {
       method: 'GET',
     });
   },
@@ -398,6 +414,18 @@ export const deliveryWalletAPI = {
   getWalletBalance: async () => {
     return await apiRequest('/api/delivery/wallet/balance', {
       method: 'GET',
+    });
+  },
+
+  /**
+   * Add Balance to Wallet (Simulated)
+   * @param {Object} data - { amount, description }
+   * @returns {Promise<Object>} Added balance details
+   */
+  addBalance: async (data) => {
+    return await apiRequest('/api/delivery/wallet/add-balance', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   },
 
@@ -414,15 +442,23 @@ export const deliveryWalletAPI = {
     });
   },
 
-  /**
-   * Request Settlement
-   * @param {number} amount - Amount to settle
-   * @returns {Promise<Object>} Response
-   */
-  requestSettlement: async (amount) => {
+  requestSettlement: async (data) => {
     return await apiRequest('/api/delivery/settlement/request', {
       method: 'POST',
-      body: JSON.stringify({ amount }),
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Get Settlement History
+   * @param {Object} params - Query params like page, limit, status
+   * @returns {Promise<Object>} Settlement history
+   */
+  getSettlementHistory: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/api/delivery/settlement/history${queryString ? `?${queryString}` : ''}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
     });
   }
 };
