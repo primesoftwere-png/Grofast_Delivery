@@ -29,7 +29,10 @@ class SocketService {
       return null;
     }
 
-    const serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+    let serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+    if (serverUrl && !serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+      serverUrl = `https://${serverUrl}`;
+    }
 
     console.log('🔌 Connecting to Socket.IO server:', serverUrl);
 

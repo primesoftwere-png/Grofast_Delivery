@@ -1,6 +1,9 @@
 // API Configuration and Helper Functions
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+let API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+if (API_BASE_URL && !API_BASE_URL.startsWith('http://') && !API_BASE_URL.startsWith('https://')) {
+  API_BASE_URL = `https://${API_BASE_URL}`;
+}
 
 /**
  * Generic API request handler
