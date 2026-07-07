@@ -241,7 +241,7 @@ class SocketService {
       return false;
     }
 
-    this.socket.emit('location-update', locationData);
+    this.socket.emit('location:update', locationData);
     return true;
   }
 

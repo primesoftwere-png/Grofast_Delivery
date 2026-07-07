@@ -19,6 +19,7 @@ import {
 import { useOrders } from "@/hooks/useOrders";
 import { useSocketContext } from "@/components/SocketProvider";
 import { toast } from 'react-hot-toast';
+import locationService from '@/services/locationService';
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   ssr: false,
@@ -115,6 +116,17 @@ export default function OrderDetails() {
     }
   };
 
+  useEffect(() => {
+    if (order) {
+      if (order.orderStatus === 'OUT_FOR_DELIVERY' || order.orderStatus === 'out_for_delivery') {
+        locationService.setActiveOrderId(order._id || orderId);
+        locationService.startTracking(5000); // 5 seconds interval
+      } else if (order.orderStatus === 'DELIVERED' || order.orderStatus === 'delivered' || order.orderStatus === 'CANCELLED' || order.orderStatus === 'cancelled') {
+        locationService.setActiveOrderId(null);
+      }
+    }
+  }, [order, orderId]);
+
   const handleMarkPickedUp = async () => {
     if (!pickupOTP || pickupOTP.length !== 6) {
       showMessage('error', 'Please enter a valid 6-digit OTP from the shopkeeper');
@@ -149,6 +161,7 @@ export default function OrderDetails() {
 
     try {
       await completeDelivery(orderId, deliveryOTP);
+      locationService.setActiveOrderId(null);
       showMessage('success', '🎉 Delivery completed! Earnings added to wallet.');
       setTimeout(() => router.push('/orders-summary'), 2000);
     } catch (err) {
