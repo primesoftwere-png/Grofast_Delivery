@@ -36,6 +36,7 @@ export default function OrderDetails() {
   const [loading, setLoading] = useState(true);
   const [pickupOTP, setPickupOTP] = useState('');
   const [deliveryOTP, setDeliveryOTP] = useState('');
+  const [deliveryBoyLocation, setDeliveryBoyLocation] = useState(null);
 
   const {
     getOrderDetails,
@@ -279,7 +280,45 @@ export default function OrderDetails() {
             shopLocation={order?.shopDetails} 
             customerLocation={order?.deliveryAddressId} 
             orderStatus={order?.orderStatus} 
+            onLocationUpdate={(loc) => {
+              setDeliveryBoyLocation(loc);
+              if (socketService.isSocketConnected()) {
+                const locationData = {
+                  orderId: order?._id || orderId,
+                  lat: loc[0],
+                  lng: loc[1],
+                  speed: 0,
+                  heading: 0,
+                  accuracy: 0
+                };
+                // Use the standard updateLocation method
+                socketService.updateLocation(locationData);
+                
+                // Also emit directly to catch common backend event names just in case
+                const socket = socketService.getSocket();
+                if (socket) {
+                  socket.emit('update-location', locationData);
+                  socket.emit('updateLocation', locationData);
+                  socket.emit('update_location', locationData);
+                }
+              }
+            }}
           />
+          
+          {deliveryBoyLocation && (
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border flex items-center justify-between text-xs sm:text-sm animate-in fade-in slide-in-from-top-2 duration-300">
+              <span className="text-muted-foreground font-medium flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                </span>
+                Live Lat/Lng
+              </span>
+              <span className="font-mono text-primary bg-primary/10 px-2 py-1 rounded font-medium tracking-tight">
+                {deliveryBoyLocation[0].toFixed(6)}, {deliveryBoyLocation[1].toFixed(6)}
+              </span>
+            </div>
+          )}
         </div>
 
 

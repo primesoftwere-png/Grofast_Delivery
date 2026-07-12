@@ -61,7 +61,7 @@ function Routing({ source, destination }) {
   return null;
 }
 
-export default function MapComponent({ shopLocation, customerLocation, orderStatus }) {
+export default function MapComponent({ shopLocation, customerLocation, orderStatus, onLocationUpdate }) {
   const [isMounted, setIsMounted] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
 
@@ -72,7 +72,11 @@ export default function MapComponent({ shopLocation, customerLocation, orderStat
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
         (position) => {
-          setCurrentLocation([position.coords.latitude, position.coords.longitude]);
+          const loc = [position.coords.latitude, position.coords.longitude];
+          setCurrentLocation(loc);
+          if (onLocationUpdate) {
+            onLocationUpdate(loc);
+          }
         },
         (error) => {
           console.error("Error watching position", error);
