@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AppNavbar } from "@/components/AppNavbar";
 import { AppSidebar } from "@/components/AppSidebar";
 import DeliveryRequestNotification from "@/components/DeliveryRequestNotification";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function ClientLayout({ children }) {
   const pathname = usePathname();
@@ -25,31 +26,33 @@ export default function ClientLayout({ children }) {
 
   // Regular layout with sidebar and navbar for dashboard pages
   return (
-    <div className="min-h-[100dvh] flex w-full relative">
-      {/* Mobile Overlay */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden" 
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+    <ProtectedRoute>
+      <div className="min-h-[100dvh] flex w-full relative">
+        {/* Mobile Overlay */}
+        {isMobileMenuOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
 
-      {/* Sidebar */}
-      <AppSidebar isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
+        {/* Sidebar */}
+        <AppSidebar isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Navbar */}
-        <AppNavbar toggleMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Navbar */}
+          <AppNavbar toggleMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
 
-        {/* Page Content */}
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          {children}
-        </main>
+          {/* Page Content */}
+          <main className="flex-1 p-4 md:p-6 overflow-auto">
+            {children}
+          </main>
 
-        {/* Delivery Request Notifications */}
-        <DeliveryRequestNotification />
+          {/* Delivery Request Notifications */}
+          <DeliveryRequestNotification />
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

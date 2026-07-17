@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Package, DollarSign, Clock, TrendingUp, MapPin, Check, X, Loader2, RefreshCw, Wifi, WifiOff, Bell } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
+import DeliveryCyclistLoader from "@/components/common/DeliveryCyclistLoader";
 import { useSocketContext } from "@/components/SocketProvider";
 import { toast } from 'react-hot-toast';
 
@@ -245,15 +246,7 @@ export default function Dashboard() {
   });
 
   if (loading) {
-    return (
-      <div className="p-4">
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-3" />
-          </div>
-        </div>
-      </div>
-    );
+    return <DeliveryCyclistLoader />;
   }
 
   return (

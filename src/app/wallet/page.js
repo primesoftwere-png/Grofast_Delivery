@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Wallet, History, ArrowDownLeft, ArrowUpRight, Loader2, AlertCircle, RefreshCcw, CheckCircle2, FileText, Upload } from "lucide-react";
 import { deliveryWalletAPI } from "@/lib/api";
+import DeliveryCyclistLoader from "@/components/common/DeliveryCyclistLoader";
 
 const WalletPage = () => {
   const [balanceData, setBalanceData] = useState(null);
@@ -111,11 +112,7 @@ const WalletPage = () => {
 
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[calc(100vh-100px)]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DeliveryCyclistLoader />;
   }
 
   // Pending COD amount is negative balance

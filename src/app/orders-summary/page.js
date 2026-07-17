@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Package, MapPin, Phone, User, Clock, CheckCircle, XCircle, Loader2, RefreshCw, Store } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
+import DeliveryCyclistLoader from "@/components/common/DeliveryCyclistLoader";
 import { toast } from "react-hot-toast";
 
 export default function OrdersSummary() {
@@ -130,9 +131,7 @@ export default function OrdersSummary() {
 
         {/* Loading State */}
         {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <DeliveryCyclistLoader />
         )}
 
         {/* Orders List */}

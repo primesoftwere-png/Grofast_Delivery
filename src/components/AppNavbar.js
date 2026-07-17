@@ -8,6 +8,7 @@ import { useProfile } from "@/hooks/useProfile";
 import locationService from "@/services/locationService";
 import { toast } from 'react-hot-toast';
 import { useRouter } from "next/navigation";
+import DeliveryCyclistLoader from "@/components/common/DeliveryCyclistLoader";
 
 export function AppNavbar({ toggleMenu }) {
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -91,6 +92,11 @@ export function AppNavbar({ toggleMenu }) {
 
   return (
     <>
+      {isLoading && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <DeliveryCyclistLoader />
+        </div>
+      )}
       <header className="h-14 flex items-center justify-between border-b border-border bg-card px-2 sm:px-4 sticky top-0 z-30 w-full">
 
         {/* Left */}

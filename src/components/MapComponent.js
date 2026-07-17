@@ -41,7 +41,7 @@ function Routing({ source, destination }) {
         lineOptions: {
           styles: [{ color: '#3b82f6', weight: 5, opacity: 0.8 }]
         },
-        fitSelectedRoutes: true,
+        fitSelectedRoutes: false,
         show: false, // hide the text instructions box
       }).addTo(map);
 

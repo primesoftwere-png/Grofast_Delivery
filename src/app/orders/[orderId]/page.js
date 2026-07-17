@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
+import DeliveryCyclistLoader from "@/components/common/DeliveryCyclistLoader";
 import { useSocketContext } from "@/components/SocketProvider";
 import { toast } from 'react-hot-toast';
 import locationService from '@/services/locationService';
@@ -215,11 +216,7 @@ export default function OrderDetails() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DeliveryCyclistLoader />;
   }
 
   if (!order) {

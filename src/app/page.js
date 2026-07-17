@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { isAuthenticated } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
+import DeliveryCyclistLoader from "@/components/common/DeliveryCyclistLoader";
 
 export default function Home() {
   const router = useRouter();
@@ -20,11 +21,5 @@ export default function Home() {
   }, [router]);
 
   // Show loading while redirecting
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-      </div>
-    </div>
-  );
+  return <DeliveryCyclistLoader />;
 }

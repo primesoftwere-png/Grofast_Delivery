@@ -3,6 +3,7 @@
 import { User, Phone, Mail, Bike, Shield, Edit, Loader2 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { useProfile } from "@/hooks/useProfile";
+import DeliveryCyclistLoader from "@/components/common/DeliveryCyclistLoader";
 import { useRouter } from "next/navigation";
 
 const Profile = () => {
@@ -10,11 +11,7 @@ const Profile = () => {
   const router = useRouter();
 
   if (isLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DeliveryCyclistLoader />;
   }
 
   const pUser = profile?.user || {};

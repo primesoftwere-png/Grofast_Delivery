@@ -3,6 +3,7 @@
 import { DollarSign, TrendingDown, Wallet, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { deliveryWalletAPI } from "@/lib/api";
+import DeliveryCyclistLoader from "@/components/common/DeliveryCyclistLoader";
 import {
   BarChart,
   Bar,
@@ -53,11 +54,7 @@ const Income = () => {
   }, [startDate, endDate]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[calc(100vh-100px)]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DeliveryCyclistLoader />;
   }
 
   if (error) {
