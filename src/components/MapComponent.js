@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Tooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 import L from 'leaflet';
@@ -10,26 +10,44 @@ import 'leaflet-routing-machine';
 // Fix for default marker icons in Leaflet with Next.js
 const customIcon = (iconUrl) => new L.Icon({
   iconUrl: iconUrl,
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32],
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40],
 });
 
-const deliveryBoyIcon = customIcon('https://cdn-icons-png.flaticon.com/512/2983/2983088.png');
+const deliveryBoyIcon = new L.divIcon({
+  className: 'bg-transparent border-none',
+  html: `
+    <div style="position: relative; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+      <div class="animate-ping absolute w-full h-full rounded-full bg-sky-400 opacity-75"></div>
+      <div class="relative w-4 h-4 rounded-full bg-sky-500 border-2 border-white shadow-sm"></div>
+    </div>
+  `,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+  popupAnchor: [0, -12],
+});
 
 function Routing({ source, destination }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!source || !destination || !map) return;
+    // Ensure map and its control corners are initialized before adding routing
+    if (!source || !destination || !map || !map._controlCorners) return;
     
     // Clear existing routing controls if they exist to prevent duplicates
     if (map.routingControl) {
-      map.removeControl(map.routingControl);
+      try {
+        map.removeControl(map.routingControl);
+      } catch (e) {
+        console.warn("Could not remove existing routing control", e);
+      }
     }
 
+    let routingControl = null;
+
     try {
-      const routingControl = L.Routing.control({
+      routingControl = L.Routing.control({
         waypoints: [
           L.latLng(source[0], source[1]),
           L.latLng(destination[0], destination[1])
@@ -51,9 +69,15 @@ function Routing({ source, destination }) {
     }
 
     return () => {
-      if (map.routingControl) {
-        map.removeControl(map.routingControl);
-        map.routingControl = null;
+      if (routingControl && map && map._controlCorners) {
+        try {
+          map.removeControl(routingControl);
+          if (map.routingControl === routingControl) {
+            map.routingControl = null;
+          }
+        } catch (e) {
+          // Ignore cleanup errors during unmount
+        }
       }
     };
   }, [source, destination, map]);
@@ -106,13 +130,13 @@ export default function MapComponent({ shopLocation, customerLocation, orderStat
         customerLocation.lat || customerLocation.latitude, 
         customerLocation.lng || customerLocation.longitude
       ];
-      targetIcon = customIcon('https://cdn-icons-png.flaticon.com/512/3135/3135715.png'); // Customer/Home icon
+      targetIcon = customIcon('/customer.png'); // Customer/Home icon
       targetTitle = "Customer Location";
     }
   } else {
     if (shopLocation && shopLocation.latitude && shopLocation.longitude) {
       targetLocation = [shopLocation.latitude, shopLocation.longitude];
-      targetIcon = customIcon('https://cdn-icons-png.flaticon.com/512/3081/3081840.png'); // Shop icon
+      targetIcon = customIcon('/shop.png'); // Shop icon
       targetTitle = "Shop Location";
     }
   }
@@ -136,6 +160,9 @@ export default function MapComponent({ shopLocation, customerLocation, orderStat
         {/* Delivery Boy Live Location Marker */}
         {currentLocation && (
           <Marker position={currentLocation} icon={deliveryBoyIcon}>
+            <Tooltip direction="top" offset={[0, -12]} opacity={1} className="font-medium text-sm">
+              Your Location
+            </Tooltip>
             <Popup>Your Location</Popup>
           </Marker>
         )}
@@ -143,6 +170,9 @@ export default function MapComponent({ shopLocation, customerLocation, orderStat
         {/* Target Destination Marker */}
         {targetLocation && (
           <Marker position={targetLocation} icon={targetIcon}>
+            <Tooltip direction="top" offset={[0, -20]} opacity={1} className="font-medium text-sm">
+              {targetTitle}
+            </Tooltip>
             <Popup>{targetTitle}</Popup>
           </Marker>
         )}
