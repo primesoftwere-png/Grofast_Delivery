@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Tooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
@@ -15,17 +15,20 @@ const customIcon = (iconUrl) => new L.Icon({
   popupAnchor: [0, -40],
 });
 
-const deliveryBoyIcon = new L.divIcon({
+// Function to generate dynamic icon with rotation
+const getDeliveryBoyIcon = (heading) => new L.divIcon({
   className: 'bg-transparent border-none',
   html: `
-    <div style="position: relative; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+    <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; transform: rotate(${heading}deg); transition: transform 0.3s ease;">
       <div class="animate-ping absolute w-full h-full rounded-full bg-sky-400 opacity-75"></div>
-      <div class="relative w-4 h-4 rounded-full bg-sky-500 border-2 border-white shadow-sm"></div>
+      <div class="relative w-6 h-6 rounded-full bg-sky-500 border-2 border-white shadow-sm flex items-center justify-center">
+        <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 8px solid white; transform: translateY(-3px);"></div>
+      </div>
     </div>
   `,
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-  popupAnchor: [0, -12],
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16],
 });
 
 function Routing({ source, destination }) {
@@ -88,6 +91,24 @@ function Routing({ source, destination }) {
 export default function MapComponent({ shopLocation, customerLocation, orderStatus, onLocationUpdate }) {
   const [isMounted, setIsMounted] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
+  const [heading, setHeading] = useState(0);
+  const prevLocationRef = useRef(null);
+
+  // Helper to calculate heading between two points
+  const calculateHeading = (lat1, lon1, lat2, lon2) => {
+    const toRadians = (degree) => degree * (Math.PI / 180);
+    const toDegrees = (radian) => radian * (180 / Math.PI);
+
+    const dLon = toRadians(lon2 - lon1);
+    const rLat1 = toRadians(lat1);
+    const rLat2 = toRadians(lat2);
+
+    const y = Math.sin(dLon) * Math.cos(rLat2);
+    const x = Math.cos(rLat1) * Math.sin(rLat2) - Math.sin(rLat1) * Math.cos(rLat2) * Math.cos(dLon);
+    
+    let brng = toDegrees(Math.atan2(y, x));
+    return (brng + 360) % 360;
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -96,10 +117,29 @@ export default function MapComponent({ shopLocation, customerLocation, orderStat
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
         (position) => {
-          const loc = [position.coords.latitude, position.coords.longitude];
+          const { latitude, longitude, heading: nativeHeading, speed, accuracy } = position.coords;
+          const loc = [latitude, longitude];
+          
+          let currentHeading = nativeHeading || 0;
+
+          // If native heading is not available, calculate it from previous position
+          if (!nativeHeading && prevLocationRef.current) {
+            const [prevLat, prevLng] = prevLocationRef.current;
+            // Only calculate if moved at least a little bit (e.g. > 0.00001 deg) to avoid jitter
+            if (Math.abs(latitude - prevLat) > 0.00001 || Math.abs(longitude - prevLng) > 0.00001) {
+              currentHeading = calculateHeading(prevLat, prevLng, latitude, longitude);
+            } else {
+              currentHeading = heading; // keep old heading if didn't move much
+            }
+          }
+
+          prevLocationRef.current = loc;
           setCurrentLocation(loc);
+          setHeading(currentHeading);
+
           if (onLocationUpdate) {
-            onLocationUpdate(loc);
+            // Pass extra details to onLocationUpdate
+            onLocationUpdate(loc, { heading: currentHeading, speed, accuracy });
           }
         },
         (error) => {
@@ -110,7 +150,7 @@ export default function MapComponent({ shopLocation, customerLocation, orderStat
       
       return () => navigator.geolocation.clearWatch(watchId);
     }
-  }, []);
+  }, [heading, onLocationUpdate]);
 
   if (!isMounted) return <div className="w-full h-80 bg-muted rounded-xl animate-pulse"></div>;
 
@@ -159,7 +199,7 @@ export default function MapComponent({ shopLocation, customerLocation, orderStat
         
         {/* Delivery Boy Live Location Marker */}
         {currentLocation && (
-          <Marker position={currentLocation} icon={deliveryBoyIcon}>
+          <Marker position={currentLocation} icon={getDeliveryBoyIcon(heading)}>
             <Tooltip direction="top" offset={[0, -12]} opacity={1} className="font-medium text-sm">
               Your Location
             </Tooltip>

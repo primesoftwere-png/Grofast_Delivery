@@ -277,16 +277,16 @@ export default function OrderDetails() {
             shopLocation={order?.shopDetails} 
             customerLocation={order?.deliveryAddressId} 
             orderStatus={order?.orderStatus} 
-            onLocationUpdate={(loc) => {
+            onLocationUpdate={(loc, details = {}) => {
               setDeliveryBoyLocation(loc);
               if (socketService.isSocketConnected()) {
                 const locationData = {
                   orderId: order?._id || orderId,
                   lat: loc[0],
                   lng: loc[1],
-                  speed: 0,
-                  heading: 0,
-                  accuracy: 0
+                  speed: details.speed || 0,
+                  heading: details.heading || 0,
+                  accuracy: details.accuracy || 0
                 };
                 // Use the standard updateLocation method
                 socketService.updateLocation(locationData);
